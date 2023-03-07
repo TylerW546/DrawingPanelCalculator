@@ -6,7 +6,7 @@ import javax.swing.event.MouseInputListener;
 
 public class Controller extends JFrame {
     public int screenWidth = 225;
-    public int screenHeight = 330;
+    public int screenHeight = 335;
 
     int mouseX;
     int mouseY;
@@ -39,11 +39,11 @@ public class Controller extends JFrame {
         p.addKeyListener(keyboard);
         
         String[] strings = {
-            "C", "+-", "%", "//", "7", "8", "9", "X", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "="
+            "C", "+-", "%", "/", "7", "8", "9", "X", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "="
         };
 
         for (int i = 0; i < 19; i++) {
-            Button b = new Button(5+i%4*55, i/4*55+55, strings[i]);
+            Button b = new Button(5+i%4*55, i/4*55+60, strings[i]);
             buttons[i] = b;
         }
     }
@@ -52,8 +52,12 @@ public class Controller extends JFrame {
         inputs();
         values();
 
+
+        Calculator.c.render(this);
+
         g.setFont(new Font("Purisa", Font.PLAIN, 25));
         for (int i = 0; i < 19; i++) {
+            buttons[i].update(this);
             buttons[i].render(this);
         }
     }
@@ -107,20 +111,69 @@ public class Controller extends JFrame {
 }
 
 class Calculator {
-    String input;
+    static Calculator c = new Calculator();
+    
+    String input = "";
+    String currentOperator = "";
 
-    float storedValue;
+    float workingValue = 0;
+    float storedValue = 0;
+
+    int[] color_ = new int[]{125, 125, 0};
 
     public Calculator() {
 
     }
 
-    public void addChar() {
-
+    public void addChar(String s) {
+        if ("0123456789".contains(s)) {
+            input += s;
+            workingValue = Float.parseFloat(input);
+        } else if (".".contains(s) && !input.contains(".")) {
+            input += s;
+            workingValue = Float.parseFloat(input);
+        } else if ("/X-+".contains(s)) {
+            calculate();
+            storedValue = workingValue;
+            currentOperator = s;
+            input = "";
+            workingValue = 0;
+        } else if ("%".contains(s)) {
+            workingValue /= 100; 
+        } else if ("+-".contains(s)) {
+            workingValue *= -1;
+        } else if ("C".contains(s)) {
+            input = "";
+            currentOperator = "";
+            storedValue = 0;
+            workingValue = 0;
+        } else if ("=".contains(s)) {
+            calculate();
+        }
     }
 
-    public void calculate() {
+    public float calculate() {
+        if (currentOperator == "+") {
+            workingValue += storedValue;
+        } else if (currentOperator == "-") {
+            workingValue = storedValue - workingValue;
+        } else if (currentOperator == "X") {
+            workingValue *= storedValue;
+        } else if (currentOperator == "/") {
+            workingValue = storedValue / workingValue;
+        } else {
+            workingValue = 0;
+        }
+        return workingValue;
+    }
 
+    public void render(Controller controller) {
+        controller.g.setColor(new Color(color_[0], color_[1], color_[2]));
+        controller.g.fillRect(5, 5, 215, 50);
+        
+        controller.g.setColor(new Color(125,255,255));
+        
+        controller.g.drawString(Float.toString(workingValue), 100,40);
     }
 }
 
@@ -137,9 +190,9 @@ class Button {
     int width_ = 50;
     int height_ = 50;
 
-    boolean clicked = false;
-
-    Calculator c = new Calculator();
+    boolean clicked_ = false;
+    int clickTimer_ = 0;
+    int clickMax_ = 50;
 
     public Button(int x, int y, String str) {
         x_ = x;
@@ -150,6 +203,22 @@ class Button {
         if (str_.equals("=")) {
             width_ = 105;
             color_ = new int[] { 0, 255, 0 };
+        }
+    }
+
+    public void update(Controller controller) {
+        if (controller.mouse.getButtons().contains(1) && controller.clickDelay == 0) {
+            if (controller.mouseX > x_ && controller.mouseX < x_ + width_ && controller.mouseY > y_ && controller.mouseY < y_ + height_) {
+                System.out.println(str_);
+                Calculator.c.addChar(str_);
+                clicked_ = true;
+            }
+        }
+
+        if (clicked_ && clickTimer_ > 0) {
+            clickTimer_--;
+        } else {
+            clicked_ = false;
         }
     }
 
