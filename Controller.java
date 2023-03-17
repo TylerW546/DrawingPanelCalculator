@@ -4,6 +4,9 @@ import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.event.MouseInputListener;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Controller extends JFrame {
     public int screenWidth = 225;
     public int screenHeight = 335;
@@ -13,9 +16,6 @@ public class Controller extends JFrame {
 
     int frameInWait = 0;
     int totalFrameWait = 20;
-
-    int clickDelay = 0;
-    int maxClickDelay = 5;
 
     HashSet<Character> keys;
     HashSet<Integer> mouseButtons;
@@ -52,7 +52,6 @@ public class Controller extends JFrame {
         inputs();
         values();
 
-
         Calculator.c.render(this);
 
         g.setFont(new Font("Purisa", Font.PLAIN, 25));
@@ -73,11 +72,8 @@ public class Controller extends JFrame {
         int s = mouse.wheel.getAndResetScroll();
 
         mouseButtons = mouse.getButtons();
-        if (mouseButtons.contains(1) && clickDelay == 0) {
-            clickDelay = maxClickDelay;
-        }
-        if (clickDelay > 0) {
-            clickDelay--;
+        if (Button.clickTimer_ > 0) {
+            Button.clickTimer_--;
         }
 
         // System.out.println(currentZoomModifier);
@@ -114,57 +110,92 @@ class Calculator {
     static Calculator c = new Calculator();
     
     String input = "";
-    String currentOperator = "";
+    float typedInput = 0;
 
-    float workingValue = 0;
-    float storedValue = 0;
+    List<Float> queue = new ArrayList<>();
+    List<String> opQueue = new ArrayList<>();
+
+    String lastOp = "+";
+    float lastOpVal = 0;
 
     int[] color_ = new int[]{125, 125, 0};
 
     public Calculator() {
-
+        queue.add(0f);
     }
 
     public void addChar(String s) {
         if ("0123456789".contains(s)) {
             input += s;
-            workingValue = Float.parseFloat(input);
+            typedInput = Float.parseFloat(input);
+            queue.set(queue.size()-1, typedInput);
         } else if (".".contains(s) && !input.contains(".")) {
-            input += s;
-            workingValue = Float.parseFloat(input);
+            input = Float.toString(queue.get(queue.size()-1)/1) + ".";
+            typedInput = Float.parseFloat(input);
+            queue.set(queue.size()-1, typedInput);
         } else if ("/X-+".contains(s)) {
-            calculate();
-            storedValue = workingValue;
-            currentOperator = s;
+            if ("-+".contains(s)) {
+                calculate(false);
+            }
             input = "";
-            workingValue = 0;
+            queue.add(0f);
+            opQueue.add(s);
         } else if ("%".contains(s)) {
-            workingValue /= 100; 
+            queue.set(queue.size()-1, queue.get(queue.size()-1)/100);
         } else if ("+-".contains(s)) {
-            workingValue *= -1;
+            queue.set(queue.size()-1, queue.get(queue.size()-1)*-1);
         } else if ("C".contains(s)) {
             input = "";
-            currentOperator = "";
-            storedValue = 0;
-            workingValue = 0;
+            queue.clear();
+            queue.add(0f);
+            opQueue.clear();
+
+            lastOp = "+";
+            lastOpVal = 0;
         } else if ("=".contains(s)) {
-            calculate();
+            input = "";
+            calculate(true);
         }
     }
 
-    public float calculate() {
-        if (currentOperator == "+") {
-            workingValue += storedValue;
-        } else if (currentOperator == "-") {
-            workingValue = storedValue - workingValue;
-        } else if (currentOperator == "X") {
-            workingValue *= storedValue;
-        } else if (currentOperator == "/") {
-            workingValue = storedValue / workingValue;
-        } else {
-            workingValue = 0;
+    public float calculate(boolean equalsButtonUsed) {
+        Calculator.c.printQueue();
+
+        if (queue.size() == 1 && equalsButtonUsed) {
+            queue.add(lastOpVal);
+            opQueue.add(lastOp);
+            calculate(false);
         }
-        return workingValue;
+        
+        while (queue.size() > 1) {
+            float result = 0;
+            String operator = "";
+            float v1 = 0;
+            float v2 = queue.get(queue.size()-1);
+
+            if (opQueue.size() > 0) {
+                operator = opQueue.get(opQueue.size()-1);
+                v1 = queue.get(queue.size()-2);
+                
+                lastOp = operator;
+                lastOpVal = v2;
+            }
+
+            if (operator == "+") {
+                result = v1 + v2;
+            } else if (operator == "-") {
+                result = v1 - v2;
+            } else if (operator == "X") {
+                result = v1 * v2;
+            } else if (operator == "/") {
+                result = v1 / v2;
+            }
+
+            queue.remove(queue.size()-1);
+            opQueue.remove(opQueue.size()-1);
+            queue.set(queue.size()-1, result);
+        }
+        return queue.get(0);
     }
 
     public void render(Controller controller) {
@@ -172,8 +203,14 @@ class Calculator {
         controller.g.fillRect(5, 5, 215, 50);
         
         controller.g.setColor(new Color(125,255,255));
-        
-        controller.g.drawString(Float.toString(workingValue), 100,40);
+        controller.g.drawString(Float.toString(queue.get(queue.size()-1)), 100,40);
+    }
+
+    public void printQueue() {
+        for (int i = 0; i < queue.size()-1; i++) {
+            System.out.print(Float.toString(queue.get(i)) + " " + opQueue.get(i) + " ");
+        }
+        System.out.println(Float.toString(queue.get(queue.size()-1)));
     }
 }
 
@@ -191,8 +228,8 @@ class Button {
     int height_ = 50;
 
     boolean clicked_ = false;
-    int clickTimer_ = 0;
-    int clickMax_ = 50;
+    static int clickTimer_ = 0;
+    static int clickMax_ = 5;
 
     public Button(int x, int y, String str) {
         x_ = x;
@@ -207,17 +244,16 @@ class Button {
     }
 
     public void update(Controller controller) {
-        if (controller.mouse.getButtons().contains(1) && controller.clickDelay == 0) {
+        if (controller.mouse.getButtons().contains(1) && Button.clickTimer_ == 0) {
             if (controller.mouseX > x_ && controller.mouseX < x_ + width_ && controller.mouseY > y_ && controller.mouseY < y_ + height_) {
                 System.out.println(str_);
-                Calculator.c.addChar(str_);
+                //Calculator.c.addChar(str_);
+                Button.clickTimer_ = Button.clickMax_;
                 clicked_ = true;
             }
         }
 
-        if (clicked_ && clickTimer_ > 0) {
-            clickTimer_--;
-        } else {
+        if (Button.clickTimer_ == 0) {
             clicked_ = false;
         }
     }
