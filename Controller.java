@@ -203,7 +203,9 @@ class Calculator {
         controller.g.fillRect(5, 5, 215, 50);
         
         controller.g.setColor(new Color(125,255,255));
-        controller.g.drawString(Float.toString(queue.get(queue.size()-1)), 100,40);
+        
+        String outStr = Float.toString(queue.get(queue.size()-1));
+        controller.g.drawString(outStr, controller.screenWidth/2-6*outStr.length(),40);
     }
 
     public void printQueue() {
@@ -247,7 +249,7 @@ class Button {
         if (controller.mouse.getButtons().contains(1) && Button.clickTimer_ == 0) {
             if (controller.mouseX > x_ && controller.mouseX < x_ + width_ && controller.mouseY > y_ && controller.mouseY < y_ + height_) {
                 System.out.println(str_);
-                //Calculator.c.addChar(str_);
+                Calculator.c.addChar(str_);
                 Button.clickTimer_ = Button.clickMax_;
                 clicked_ = true;
             }
